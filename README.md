@@ -2,122 +2,83 @@
 
 ---
 
-**Advanced Lane Finding Project**
+**Vehicle Finding Project**
 
 The goals / steps of this project are the following:
 
-* Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
-* Apply a distortion correction to raw images.
-* Use color transforms, gradients, etc., to create a thresholded binary image.
-* Apply a perspective transform to rectify binary image ("birds-eye view").
-* Detect lane pixels and fit to find the lane boundary.
-* Determine the curvature of the lane and vehicle position with respect to center.
-* Warp the detected lane boundaries back onto the original image.
-* Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
+* Perform a Histogram of Oriented Gradients (HOG) feature extraction on a labeled training set of images and train a classifier Linear SVM classifier
+* Optionally, you can also apply a color transform and append binned color features, as well as histograms of color, to your HOG feature vector. 
+* Note: for those first two steps don't forget to normalize your features and randomize a selection for training and testing.
+* Implement a sliding-window technique and use your trained classifier to search for vehicles in images.
+* Run your pipeline on a video stream (start with the test_video.mp4 and later implement on full project_video.mp4) and create a heat map of recurring detections frame by frame to reject outliers and follow detected vehicles.
+* Estimate a bounding box for vehicles detected.
 
 [//]: # (Image References)
 
-[chessboardImage]: ./reportPict/chessBoard.PNG "Undistorted chessboard"
-[undistortImage]: ./reportPict/undistort.PNG "Undistorted project image"
-[binaryImage]: ./reportPict/binary.PNG "Binary project image"
-[wrappedImage]: ./reportPict/wrapped.PNG "Wrapped project image"
-[markedImage]: ./reportPict/markedLines.PNG "marked project image"
-[markedUndistImage]: ./reportPict/markedUndist.PNG "marked undistorted project image"
-[projectVideo]: ./output_videos/project_video.mp4 "Project Video"
-[challengeVideo]: ./output_videos/challenge_video.mp4 "challenge Video"
-
-
+[hogCarImage]: ./output_images/hogCar.PNG "Hog Car"
+[hogNonCarImage]: ./output_images/hogNotCar.PNG "Hog non car"
+[fixedWindowsImage]: ./output_images/fixedWindows.PNG "Fixed Windows"
+[variableWindowsImage]: ./output_images/variableWindows.PNG "Variable window vehicle"
+[variableWindowsHeatMapImage]: ./output_images/variableWindowsHeatMap.PNG "Variable window heat map"
+[finalVideo]: ./output_videos/final_projct_video.mp4 "Final video"
 ### Report
 
-#### 1. This report describes the solution for [goals](https://review.udacity.com/#!/rubrics/571/view)  
+#### 1. This report describes the solution for [goals](https://review.udacity.com/#!/rubrics/513/view)
 
 Whole python code is located in [IPython](./code.ipynb). Executed version of project can be viewed [here](./code.html).
 
-### Camera Calibration
+#### 2. Camera calibration
+First and second cell of IPython was copied from Advance Line detection and is used to correct the camera distortions.
 
-#### 1. Camera matrix and distortion coefficients
+#### 3. Line detection pipeline
+Third cell of IPython was also copied from Advance Line detection and consist of full line detection pipeline.
 
-First cell of IPython project uses cv2 method findChessboardCorners to detect all corners on distorted chess boards. 
-Next cell uses cv2 method calibrateCamera to calculate camera distortion based on points detected in previous cell. Finally distortion is stored to 'camera_cal/wide_dist_pickle.p' so this calculations can be skipped when tuning image processing pipeline. 
-Example chessboard before and after calibration 
+#### 4. Getting optimal parameters of HOG
+In 4th cell of IPython optimal HOG parameters for dataset are determined. I decided to use only grey scale and checked all the combinations of following parameters:
+HOG orientations [6,8,10]
+HOG pixels per cell [8,10,16]
+HOG cells per block [1,2,3]
+C for linear SVM = [1,3,6,10,20]
+The best parameters are:
+Best orient: 10
+Best pix_per_cell: 10
+Best cell_per_block: 3
+Best C param: 1
 
-![Example chessboard before and after calibration][chessboardImage]
+This parameters are showed on one Vehicle picture and one non-Vehicle picture in 5th IPython cell
 
-### Pipeline (single images)
+![Hog Car][hogCarImage]
 
-#### 1. Distortion correction
+![Hog non car][hogNonCarImage]
+#### 5. Train classifier
+in 6th IPython cell histogram and spacial features are added to best HOG parameters and classifier is trained the resulting accuracy is 0.9598.
 
-In third IPython cell distortion of input images are corrected using parameters stored in pickle file. 
-Example of project image before and after distortion correction:
+#### 6. Classification with fixed size windows
 
-![Undistorted project image][undistortImage]
+In 8th cell classier is tested with fixed 100x100(400,680) pixel window and it does quite good job although there are quire a few false positives. 
+Example of fixed window vehicle detection:
 
-#### 2. Binary image creation
+![Fixed window vehicle][fixedWindowsImage]
 
-In forth IPython cell I tried several approaches to detect lines. first I tried to use combination of colour and gradient methods in convertToBinMix function, this method worked well for project video but it failed in challenge video because of very distinct surface colour change in the middle of the line.
-Next I tried to detect yellow and white lines just by colours in convertToBinColors but this method was also impossible to apply on both challenge and project videos.
-In the end I decided to use colour detection for find all greyish colours convertToBinNotGray which after some experiments started to work quite reliably on both project and challenge video.
-Example of binary image:
- 
-![Binary project image][binaryImage]
+#### 7. Classification with variable size windows
 
-#### 3. Perspective transform
+In 9th cell classier is tested with variable windows of scale 1.2(390,490), 1.4(450,590), 1.7(560,680). It looks much better than fixed windows. 
+Example of variable window vehicle detection:
 
-In the fifth IPython cell Images are transformed to "bird eye view" using cv2 warpPerspective method I chose to hardcode the source and destination points in the following manner:
+![Variable window vehicle][variableWindowsImage]
 
-```python
-offset = 300
-src = np.float32([[580,460], [702,460], [233,700], [1075,700]]) # Project video
-dst = np.float32([[offset, 0], [img_size[0]-offset, 0], 
-                 [offset, img_size[1]], 
-                 [img_size[0]-offset, img_size[1]]])
-```
-For challenge video camera position seems to change so different source points were selected
-```python
-src = np.float32([[588,490], [740,490], [309,710], [1117,710]]) # Challenge video
-```
+#### 8. Heat map
 
-I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
+In 10th IPython cell I convert detections from variable windows to heat map. to avoid too many false positives threshold is set to 2.
+Example of variable window heat map:
 
-![Wrapped project image][wrappedImage]
+![Variable window Heat Map vehicle][variableWindowsHeatMapImage]
 
-#### 4. Identifying line pixels and fitting polynomial
+#### 9. Identifying line pixels and fitting polynomial
 
-In sixth IPython cell binary images are processed to mark lines and detect their features with function markLines. 
-First, lines pixels are identified with sliding windows (green rectangles) in for loop
-```python
-for window in range(nwindows):
-```
-Next, Marked points are go through sanity check pixelsSanityCheck and if are passing, fitted with quadratic polynomial using numpy polyfit method. This fits are verified in lineFitSanitycheck for correct position and distance and approximate perpendicularity. 
+Finally the same pipeline is applied to the video together with line detection and here is video with lines and vehicles detected: 
 
-![marked project image][markedImage]
-
-#### 5. Line radius and car position calculations
-
-Apart from identifying lines function markLines also calculates radius using calculateRadius function. To calculate radius first polynomial coefficients are converted from pixels to meters based on dashed line length and traffic lane width. Next radius is calculated close to car hood (the bottom of the picture) using formula:
-Rcurve=((1+(2Ay+B)^2)^3/2)/|2A|
-The position of the car on the line is calculated as a deviation of the middle of the line from middle of the picture and converted to meters, This parameters together with detected lines are overlaid on input picture and returned.
-
-Lines marked on distortion corrected image:
-
-![marked undistorted project image][markedUndistImage]
-
----
-
-### Pipeline (video)
-
-#### 1. Video processing modifications
-
-For video processing I decide to reuse functions from image processing pipeline. markLines function was modified to accept previous line position as an input. This significantly speeds up marking left and right line pixels and if passes sanity checks is overlaid on the output image. 
-When no line passing sanity check is found, previously detected line is used.
-
-Here is my project video: 
-
-![project video][projectVideo]
-
-Here is challenge video:
-
-![challenge video][challengeVideo]
+![Final video][finalVideo]
 
 
 ---
@@ -126,4 +87,4 @@ Here is challenge video:
 
 #### 1. problems / issues
 
-The biggest problem is image binarization under different light conditions. It can be work around on challenge video by taking lane detected in previous frames but it is not possible for harder challenge video. Also radius calculation seems to be a bit noisy.
+The biggest problem are false positives. This could be fixed with tracking vehicle through few video frames.
