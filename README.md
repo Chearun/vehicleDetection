@@ -74,9 +74,10 @@ Example of variable window heat map:
 
 ![Variable window Heat Map vehicle][variableWindowsHeatMapImage]
 
-#### 9. Identifying line pixels and fitting polynomial
+#### 9. Video pipeline
 
-Finally the same pipeline is applied to the video together with line detection and here is video with lines and vehicles detected: 
+Finally the same pipeline is applied to the video together with line detection. To reduce the number of false positives heat map is summed over 40 frames and threshold is applied this value.
+Next only labels which were detected over 40 frames ale displayed. Here is video with lines and vehicles detected: 
 
 ![Final video][finalVideo]
 
@@ -87,4 +88,4 @@ Finally the same pipeline is applied to the video together with line detection a
 
 #### 1. problems / issues
 
-The biggest problem are false positives. This could be fixed with tracking vehicle through few video frames.
+The biggest problem are false positives. It was greatly improved by using information from previous frames. Solution deep learning algorithm could be implemented.
